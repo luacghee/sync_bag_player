@@ -1,0 +1,17 @@
+services:
+  sync_bag_player_app:
+    image: sync-bag-player:latest
+    tty: true    
+    stdin_open: true
+    network_mode: "host"    
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw'
+      - /tmp/D2SLAM:/tmp/D2SLAM
+      - ./scripts:/sync_bag_player/src/scripts
+      - ./configs:/sync_bag_player/configs
+      - ./outputs:/sync_bag_player/outputs
+    environment:
+      - DISPLAY=$DISPLAY
+      - HOST_DIR=${PWD}

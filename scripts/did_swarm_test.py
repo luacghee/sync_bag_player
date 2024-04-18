@@ -2,6 +2,7 @@
 import argparse
 import yaml
 from os import system
+import os
 import subprocess
 import pathlib
 import time
@@ -20,16 +21,23 @@ def launch_docker(name, config, config_path, token, terminator):
 
     _id = config["dataset"][name]["id"]
     workspace = config["workspace"]
-    output_path = dataset_path.joinpath(config["output_path"] + f"/swarm{_id}")
-    swarm_config_path = dataset_path.joinpath(config["dataset"][name]["config_path"])
+
+    # Modified for docker in docker paths referencing
+    host_dir = pathlib.Path(os.environ['HOST_DIR'])
+    dataset_path = pathlib.Path(config["dataset_path"])
+    host_swarm_config_path = dataset_path.joinpath(config["dataset"][name]["config_path"])
+    host_output_path = host_dir.joinpath(config["output_path"] + f"/swarm{_id}")
+    host_config_path = host_dir.joinpath(config_path)
+
     bag_path = config["dataset"][name]["bag"]
     image_name = config["image_name"]
     container_name = f"{name}_{token}"
+
     if "entry_point" in config:
-        entry_point_path = dataset_path.joinpath(config["entry_point"])
+        entry_point_path = output_path.joinpath(config["entry_point"])
     else:
         if "entry_point_script" in config:
-            entry_point_path = (f"/tmp/{container_name}_entry_point.sh")
+            entry_point_path = (f"/tmp/D2SLAM/{container_name}_entry_point.sh")
             with open(entry_point_path, "w") as stream:
                 stream.write(config["entry_point_script"])
                 stream.close()
@@ -38,20 +46,20 @@ def launch_docker(name, config, config_path, token, terminator):
             exit(-1)
 
     if bag_path == "":
-        docker_entry_point = current_dir.joinpath("docker_entrypoint_sim.sh")
+        docker_entry_point = host_dir.joinpath("scripts/docker_entrypoint_sim.sh")
     else:
-        docker_entry_point = current_dir.joinpath("docker_entrypoint.sh")
-    ws_name = pathlib.Path(workspace).name
+        docker_entry_point = host_dir.joinpath("scripts/docker_entrypoint.sh")
+
     if workspace == "":
         workspace_mount = ""
     else:
-        workspace_mount = "-v " + workspace+"/:/root/swarm_ws/"
+        workspace_mount = "-v " + str(host_dir.joinpath("workspace/" + workspace)) + "/:/root/swarm_ws/"
 
     cmd = f"""sudo docker run --name {container_name} --runtime=nvidia --rm -it  \
 {workspace_mount} \
--v {output_path}:/root/output/ \
--v {swarm_config_path}:/root/SwarmConfig/ \
--v {config_path}:/root/config.yaml \
+-v {host_output_path}:/root/output/ \
+-v {host_swarm_config_path}:/root/SwarmConfig/ \
+-v {host_config_path}:/root/config.yaml \
 -v {dataset_path}:/root/bags/ \
 -v {entry_point_path}:/root/entry_point.sh \
 -v {docker_entry_point}:/root/docker_entrypoint.sh \
@@ -96,6 +104,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     with open(args.config_path, "r") as stream:
         config = yaml.safe_load(stream)
+
     pids, _ = run_swarm_docker_evaluation(config, args.bash, args.config_path, token, args.terminator)
 
     try:

@@ -1,0 +1,28 @@
+dataset:
+  swarm1: #drone 
+    id: 1
+    config_path: "Configs"
+    bag: "corridor1/dataset-corridor1_512_16-sync-comp.bag"
+
+output_path: "outputs/d2slam/"
+workspace: ""
+dataset_path: "/path/to/dataset"
+image_name: "d2slam:pc"
+exclude_topics: ["/uwb_node/incoming_broadcast_data"]
+rate: 1
+t_start: 0
+duration: 300
+start_latency: 5
+
+entry_point_script: |
+  #!/bin/bash
+  RVIZ=false
+  SHOW=false
+  if [ $DRONE_ID -eq 1 ] 
+  then
+    RVIZ=true
+  fi
+  roslaunch d2vins tum_swarm.launch show:=$SHOW self_id:=$DRONE_ID \
+    config:=/root/swarm_ws/src/D2SLAM/config/tum/tum_multi.yaml \
+    enable_loop:=true rviz:=$RVIZ send_whole_img_desc:=false send_img:=false \
+    enable_pgo:=true verbose:=false is_4dof:=false match_index_dist:=100 match_index_dist_remote:=100 | tee /root/output/d2slam.log
